@@ -1,0 +1,10 @@
+streamlit
+pdfminer.six
+python-docx
+pytesseract
+pillow
+transformers
+sentence-transformers
+spacy
+dateparser
+altair
