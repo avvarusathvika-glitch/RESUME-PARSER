@@ -7,9 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1RGASeRX20oUoLHRTcx3zhpTnKf2iJXye
 """
 
-!apt-get update -qq
-!apt-get install -y -qq poppler-utils tesseract-ocr
-!pip install -q streamlit pdfminer.six python-docx pytesseract pillow transformers sentence-transformers spacy dateparser altair
+
 
 # Commented out IPython magic to ensure Python compatibility.
 # %%writefile app.py
