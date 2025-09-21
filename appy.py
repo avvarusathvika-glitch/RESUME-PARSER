@@ -284,28 +284,17 @@ Original file is located at
 # st.caption("Built with BERT + spaCy + SentenceTransformers. 🚀")
 #
 
-!streamlit run app.py --server.port 8501 --server.headless true &>/dev/null&
+
 
 from google.colab.output import eval_js
 print("Click this link to open app 👉")
 print(eval_js("google.colab.kernel.proxyPort(8501)"))
 
-!tail -n 40 streamlit_log.txt
 
-!pkill -f streamlit || true
-
-!streamlit run app.py --server.port 8501 --server.headless true > streamlit_log.txt 2>&1 &
-
-!tail -n 40 streamlit_log.txt
 
 from google.colab.output import eval_js
 print(eval_js("google.colab.kernel.proxyPort(8501)"))
 
-!ps -ef | grep streamlit
-
-!tail -n 50 streamlit_log.txt
-
-!tail -n 100 streamlit_log.txt
 
 from google.colab.output import eval_js
 print("Click this link to open app 👉")
