@@ -8,3 +8,4 @@ sentence-transformers
 spacy
 dateparser
 altair
+nltk
