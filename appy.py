@@ -199,6 +199,133 @@ if uploaded and st.button("🚀 Parse Resume"):
         # timeline
         timeline = detect_timeline(text)
 
-        # JD fit (skill overlap + semantic similarity)
+                # JD fit (skill overlap + semantic similarity)
         jd_text_clean = (jd_text or "").strip()
-        jd_sk
+        jd_skills = sorted({s for s in CURATED_SKILLS if s in jd_text_clean.lower()})
+        missing_skills = [s for s in jd_skills if s not in skills]
+
+        # semantic similarity
+        sim = 0.0
+        if jd_text_clean:
+            cand_profile = " ".join([
+                " ".join(skills), summary, text[:1200]
+            ])
+            emb_cand = sent_model.encode(cand_profile, convert_to_tensor=True)
+            emb_jd   = sent_model.encode(jd_text_clean, convert_to_tensor=True)
+            sim = float(util.cos_sim(emb_cand, emb_jd).item())
+
+        # blend skill overlap + semantic sim
+        skill_overlap = 0.0
+        if jd_skills:
+            skill_overlap = 1.0 - (len(missing_skills) / len(jd_skills))
+        fit_score = round(100 * (jd_weight_skills * skill_overlap + jd_weight_text * sim))
+
+        # suggestion
+        if not jd_text_clean:
+            suggestion = "ℹ️ Add a JD to get a fit suggestion."
+        elif fit_score >= 75 and len(missing_skills) <= 2:
+            suggestion = "✅ Strong fit — proceed to interview."
+        elif fit_score >= 55:
+            suggestion = "🟡 Borderline — consider technical screen."
+        else:
+            suggestion = "❌ Low fit — keep in pipeline."
+
+        # ---- Hero Card ----
+        st.markdown(f"""
+        <div class="hero">
+          <h2 style="margin-bottom:0;">{name_guess}</h2>
+          <p class="small">📊 Resume Score: <b>{resume_score}/100</b></p>
+          <p>💡 {elevator_pitch(name_guess, skills, '')}</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # JD fit box
+        st.markdown(f"""
+        <div style="margin-top:0.5rem; padding:1rem; background:#f6faff; border:1px solid #e6f0ff; border-radius:12px;">
+          <b>JD Fit Score:</b> {fit_score}/100<br/>
+          {suggestion}<br/>
+          <span style="color:#666;">Missing skills: {', '.join(missing_skills) if missing_skills else 'None'}</span>
+        </div>
+        """, unsafe_allow_html=True)
+        st.progress(fit_score)
+
+        # ---- Metrics ----
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Skills", str(len(skills)))
+        c2.metric("Emails", str(len(emails)))
+        c3.metric("Links", str(len(links)))
+
+        # ---- Tabs ----
+        tabs = st.tabs(["Overview","Skills","Entities","Timeline","JSON"])
+
+        with tabs[0]:
+            st.subheader("Overview")
+            st.write("**Emails:**", emails or "—")
+            st.write("**Phones:**", phones or "—")
+            st.write("**Links:**", links or "—")
+            st.success("**Summary:** " + (summary or "—"))
+
+        with tabs[1]:
+            st.subheader("Skills")
+            st.write("Detected Skills:", skills or "—")
+            st.write("Grouped:", group_skills(skills))
+
+        with tabs[2]:
+            st.subheader("NER Entities (BERT)")
+            if ner_results:
+                st.dataframe(pd.DataFrame(ner_results))
+            else:
+                st.write("No entities detected.")
+
+        with tabs[3]:
+            st.subheader("Career Timeline")
+            if timeline:
+                df_t = pd.DataFrame(timeline)
+                try:
+                    df_t["start_dt"] = pd.to_datetime(df_t["start"])
+                    df_t["end_dt"]   = pd.to_datetime(df_t["end"])
+                    df_t["label"] = df_t.apply(
+                        lambda r: (r["role"] or r["company"] or r["start_raw"])[:40], axis=1
+                    )
+                    chart = alt.Chart(df_t).mark_bar(size=18).encode(
+                        x=alt.X('start_dt:T', title='Start'),
+                        x2=alt.X2('end_dt:T', title='End'),
+                        y=alt.Y('label:N', sort=None, title='Role / Company'),
+                        tooltip=['role','company','start_raw','end_raw']
+                    ).properties(height=max(200, 40 * len(df_t)))
+                    st.altair_chart(chart, use_container_width=True)
+                except Exception as e:
+                    st.write("Timeline table:", df_t)
+            else:
+                st.info("No timeline detected (need date ranges like 'Jun 2022 - Dec 2022').")
+
+        with tabs[4]:
+            st.subheader("JSON Export")
+            parsed = {
+                "filename": filename,
+                "name_guess": name_guess,
+                "emails": emails,
+                "phones": phones,
+                "links": links,
+                "skills": skills,
+                "skills_grouped": group_skills(skills),
+                "summary": summary,
+                "resume_score": resume_score,
+                "ner_entities": ner_results,
+                "timeline": timeline,
+                "jd": {
+                    "text_present": bool(jd_text_clean),
+                    "jd_skills": jd_skills,
+                    "missing_skills": missing_skills,
+                    "semantic_similarity": round(sim, 3),
+                    "fit_score": fit_score,
+                    "suggestion": suggestion
+                }
+            }
+            st.json(parsed)
+            st.download_button(
+                "Download JSON",
+                data=json.dumps(parsed, indent=2),
+                file_name="parsed_resume.json",
+                mime="application/json"
+            )
