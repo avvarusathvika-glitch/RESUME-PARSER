@@ -7,6 +7,11 @@ from PIL import Image
 import pytesseract
 import re
 import nltk
+
+# make sure both punkt and punkt_tab are available
+nltk.download('punkt', quiet=True)
+nltk.download('punkt_tab', quiet=True)
+
 from sentence_transformers import SentenceTransformer, util
 from transformers import pipeline
 import dateparser
