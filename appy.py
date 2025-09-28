@@ -29,77 +29,103 @@ except Exception:
 st.set_page_config(layout="wide", page_title="AI Resume Parser", page_icon="📑")
 st.markdown("""
 <style>
+/* ========= Pastel Blue Light Theme ========= */
 :root{
   --bg:#ffffff;
+  --ink:#0f172a;                 /* slate-900 */
+  --muted:#f6f9ff;               /* very light blue */
   --card:#ffffff;
-  --muted:#f6f8fb;
-  --ink:#0f172a;
-  --ink-2:#334155;
-  --brand:#4f46e5;     /* indigo-600 */
-  --brand-2:#22c55e;   /* emerald-500 */
-  --shadow:0 10px 30px rgba(15,23,42,.06);
+  --brand:#3b82f6;               /* blue-500 */
+  --brand-2:#93c5fd;             /* blue-300 */
+  --brand-3:#dbeafe;             /* blue-100 */
+  --accent:#a5b4fc;              /* indigo-300 */
+  --ink-2:#334155;               /* slate-700 */
+  --shadow:0 10px 30px rgba(30,64,175,.06);
 }
+
 html, body, [data-testid="stAppViewContainer"]{
-  background: radial-gradient(1200px 600px at 10% -10%, #eef2ff 0%, transparent 40%),
-              radial-gradient(900px 500px at 110% 10%, #ecfeff 0%, transparent 35%),
-              var(--bg) !important;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, var(--brand-3) 0%, transparent 40%),
+    radial-gradient(900px 500px at 110% 10%, #e0f2fe 0%, transparent 35%),
+    var(--bg) !important;
   color: var(--ink);
 }
-.block-container { padding-top: 1rem; padding-bottom: 2rem; }
+
+/* Sidebar – soft gradient */
+section[data-testid="stSidebar"]{
+  background: linear-gradient(180deg, var(--brand-3), #f8fbff 30%, #ffffff 100%) !important;
+  border-right: 1px solid #e5e7eb;
+}
+
+/* container spacing */
+.block-container{ padding-top: 1rem; padding-bottom: 2rem; }
 
 /* header badge */
 .header-badge{
-  display:inline-block; padding:.25rem .6rem; border-radius:999px;
-  background:rgba(79,70,229,.08); color:var(--brand); font-weight:600; font-size:.85rem;
-  border:1px solid rgba(79,70,229,.18);
+  display:inline-block; padding:.28rem .7rem; border-radius:999px;
+  background:rgba(59,130,246,.09); color:var(--brand); font-weight:600; font-size:.85rem;
+  border:1px solid rgba(59,130,246,.22);
 }
 
 /* hero card */
 .hero{
   background: linear-gradient(135deg, #ffffffcc, #ffffffcc);
   backdrop-filter: blur(4px);
-  border:1px solid #eef2ff;
+  border:1px solid #e6eefc;
   border-radius: 16px;
   padding: 18px 20px;
   box-shadow: var(--shadow);
 }
 
 /* metric pills */
-.metric-grid{
-  display:grid; gap:14px;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  margin: 14px 0 2px 0;
-}
+.metric-grid{ display:grid; gap:14px; grid-template-columns: repeat(3, minmax(0,1fr)); margin: 14px 0 2px 0; }
 .metric{
   background: var(--card);
-  border:1px solid #eef2f7;
+  border:1px solid #e6eefc;
   border-radius:14px; padding:14px;
   box-shadow: var(--shadow);
 }
 .metric .k{ font-size:.82rem; color:var(--ink-2); }
 .metric .v{ font-size:1.35rem; font-weight:800; margin-top:2px; }
 
-/* tables */
-table{ border-collapse:collapse; width:100%; border-radius:12px; overflow:hidden; }
-th{ background:#f3f4f6; font-weight:700; padding:10px; }
-td{ padding:10px; border-top:1px solid #e5e7eb; }
-tr:nth-child(even) td{ background:#fafafa; }
+/* file uploader – make it light */
+[data-testid="stFileUploaderDropzone"]{
+  background: var(--muted) !important;
+  border:2px dashed var(--brand-2) !important;
+  color: var(--ink) !important;
+}
+[data-testid="stFileUploaderDropzone"] *{ color: var(--ink) !important; }
+
+/* primary buttons */
+.stButton > button{
+  background: linear-gradient(90deg, var(--brand), #60a5fa) !important;
+  color:#fff !important; border:none; border-radius:10px; padding:.55rem 1rem;
+  box-shadow: 0 6px 16px rgba(59,130,246,.18);
+}
+.stButton > button:hover{ filter: brightness(1.05); }
 
 /* progress (fit bar) */
 [data-testid="stProgress"] > div > div{
   background: linear-gradient(90deg, var(--brand), #60a5fa, #22c55e) !important;
 }
 
-/* tabs spacing */
-[data-testid="stTabs"] button { font-weight:600; }
+/* tables */
+table{ border-collapse:collapse; width:100%; border-radius:12px; overflow:hidden; }
+th{ background:#f3f6ff; font-weight:700; padding:10px; color:#1e3a8a; }
+td{ padding:10px; border-top:1px solid #e5e7eb; }
+tr:nth-child(even) td{ background:#fafcff; }
 
-/* small text */
+/* tabs */
+[data-testid="stTabs"] button{ font-weight:600; }
+
+/* tiny text */
 .small{ color:#64748b; font-size:.92rem; }
 
 /* footer */
-.footer { color:#94a3b8; font-size:.85rem; margin-top:18px; }
+.footer{ color:#94a3b8; font-size:.85rem; margin-top:18px; }
 </style>
 """, unsafe_allow_html=True)
+
 
 # ---- Sidebar: JD input ----
 with st.sidebar:
