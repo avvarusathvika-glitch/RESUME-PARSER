@@ -8,4 +8,9 @@ sentence-transformers
 dateparser
 altair
 nltk
+easyocr
+torch
+torchvision
+pymupdf
+numpy
 
