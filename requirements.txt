@@ -5,7 +5,7 @@ pytesseract
 pillow
 transformers
 sentence-transformers
-spacy
 dateparser
 altair
 nltk
+
