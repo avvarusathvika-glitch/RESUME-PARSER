@@ -29,7 +29,7 @@ except Exception:
 st.set_page_config(layout="wide", page_title="AI Resume Parser", page_icon="📑")
 st.markdown("""
 <style>
-/* ========= Pastel Blue Light Theme ========= */
+/* ========= Pastel Blue Light Theme (Strict) ========= */
 :root{
   --bg:#ffffff;
   --ink:#0f172a;                 /* slate-900 */
@@ -43,19 +43,41 @@ st.markdown("""
   --shadow:0 10px 30px rgba(30,64,175,.06);
 }
 
+/* App background + text */
 html, body, [data-testid="stAppViewContainer"]{
   background:
     radial-gradient(1200px 600px at 10% -10%, var(--brand-3) 0%, transparent 40%),
     radial-gradient(900px 500px at 110% 10%, #e0f2fe 0%, transparent 35%),
     var(--bg) !important;
-  color: var(--ink);
+  color: var(--ink) !important;
 }
 
-/* Sidebar – soft gradient */
+/* Force headings to dark ink (some themes make them white) */
+h1, h2, h3, h4, h5, h6, label, p, span, div, small {
+  color: inherit !important;
+}
+
+/* Sidebar – soft gradient + dark text */
 section[data-testid="stSidebar"]{
   background: linear-gradient(180deg, var(--brand-3), #f8fbff 30%, #ffffff 100%) !important;
   border-right: 1px solid #e5e7eb;
+  color: var(--ink) !important;
 }
+section[data-testid="stSidebar"] *{
+  color: var(--ink) !important;
+}
+
+/* Inputs: textareas / text inputs white, not black */
+textarea, input[type="text"], input[type="search"], input[type="email"], input[type="url"]{
+  background:#ffffff !important;
+  color: var(--ink) !important;
+  border:1px solid #dbe4ff !important;
+  border-radius:10px !important;
+}
+[data-baseweb="textarea"] textarea{ background:#ffffff !important; color:var(--ink) !important; }
+
+/* Slider label + ticks */
+[data-testid="stSlider"] *{ color: var(--ink) !important; }
 
 /* container spacing */
 .block-container{ padding-top: 1rem; padding-bottom: 2rem; }
@@ -88,13 +110,17 @@ section[data-testid="stSidebar"]{
 .metric .k{ font-size:.82rem; color:var(--ink-2); }
 .metric .v{ font-size:1.35rem; font-weight:800; margin-top:2px; }
 
-/* file uploader – make it light */
+/* file uploader – light */
 [data-testid="stFileUploaderDropzone"]{
   background: var(--muted) !important;
   border:2px dashed var(--brand-2) !important;
   color: var(--ink) !important;
 }
 [data-testid="stFileUploaderDropzone"] *{ color: var(--ink) !important; }
+[data-testid="stFileUploader"] button{
+  background:#1e293b !important; color:#fff !important; /* keep button readable */
+  border-radius:8px !important; border:none !important;
+}
 
 /* primary buttons */
 .stButton > button{
@@ -111,18 +137,18 @@ section[data-testid="stSidebar"]{
 
 /* tables */
 table{ border-collapse:collapse; width:100%; border-radius:12px; overflow:hidden; }
-th{ background:#f3f6ff; font-weight:700; padding:10px; color:#1e3a8a; }
-td{ padding:10px; border-top:1px solid #e5e7eb; }
+th{ background:#f3f6ff; font-weight:700; padding:10px; color:#1e3a8a !important; }
+td{ padding:10px; border-top:1px solid #e5e7eb; color: var(--ink) !important; }
 tr:nth-child(even) td{ background:#fafcff; }
 
 /* tabs */
-[data-testid="stTabs"] button{ font-weight:600; }
+[data-testid="stTabs"] button{ font-weight:600; color: var(--ink) !important; }
 
-/* tiny text */
-.small{ color:#64748b; font-size:.92rem; }
+/* small text */
+.small{ color:#64748b !important; font-size:.92rem; }
 
 /* footer */
-.footer{ color:#94a3b8; font-size:.85rem; margin-top:18px; }
+.footer{ color:#94a3b8 !important; font-size:.85rem; margin-top:18px; }
 </style>
 """, unsafe_allow_html=True)
 
