@@ -1,6 +1,3 @@
-# 📑 AI Resume Parser — Pastel Light Theme + EasyOCR + BERT NER + SBERT Skills + JD Fit + Timeline + Suggestions
-# Fully self-contained Streamlit app.
-
 import streamlit as st
 from io import BytesIO
 from pdfminer.high_level import extract_text as pdf_extract_text
@@ -98,13 +95,13 @@ tr:nth-child(even) td{ background:#fafcff; }
 /* tabs */
 [data-testid="stTabs"] button, [data-testid="stTabs"] button p, [data-testid="stTabs"] button span { color: var(--ink) !important; }
 
-/* code/pre */
+/* code/pre (markdown) */
 [data-testid="stMarkdownContainer"] pre, [data-testid="stMarkdownContainer"] code{
   background:#f8fbff !important; color:var(--ink) !important;
   border:1px solid #e6eefc !important; border-radius:8px !important;
 }
 
-/* JSON */
+/* JSON (if st.json is ever used) */
 [data-testid="stJson"], [data-testid="stJson"] *{ color: var(--ink) !important; }
 [data-testid="stJson"] pre, [data-testid="stJson"] code{
   background:#f8fbff !important; color:var(--ink) !important;
@@ -129,6 +126,22 @@ tr:nth-child(even) td{ background:#fafcff; }
 
 /* small */
 .small{ color:#64748b !important; font-size:.92rem; }
+
+/* ===== FINAL FORCE-LIGHT PATCHES ===== */
+[data-testid="stCodeBlock"] pre,
+[data-testid="stCodeBlock"] code,
+div.stCode pre,
+div.stCode code {
+  background:#f8fbff !important;
+  color: var(--ink) !important;
+  border:1px solid #e6eefc !important;
+  border-radius:8px !important;
+  box-shadow:none !important;
+}
+[data-testid="stFileUploader"] * { color: var(--ink) !important; fill: var(--ink) !important; }
+[data-testid="stFileUploaderDropzone"] { background: var(--muted) !important; border:2px dashed var(--brand-2) !important; }
+[data-testid="stFileUploaderDropzone"] * { background: transparent !important; color: var(--ink) !important; fill: var(--ink) !important; }
+[data-testid="stFileUploader"] div[role="button"] { color: var(--ink) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -281,7 +294,6 @@ def detect_timeline(text: str):
 # ---------------- Models ----------------
 @st.cache_resource
 def load_models():
-    # grouped_entities=True for cleaner labels; also normalize later
     ner = pipeline("ner", model="dslim/bert-base-NER", grouped_entities=True)
     sent_model = SentenceTransformer("all-MiniLM-L6-v2")
     return ner, sent_model
@@ -397,7 +409,7 @@ def structured_snapshot(sent_model, raw_text: str, top_k=3):
     return snapshot
 
 def render_list(label, items):
-    st.markdown(f"**{label}:**")
+    st.markdown(f"*{label}:*")
     if not items:
         st.markdown("—")
         return
@@ -502,202 +514,3 @@ if uploaded and st.button("🚀 Parse Resume"):
             name_guess = emails[0].split("@")[0]
 
         # Anonymize
-        if anonymize_flag:
-            name_guess = "CANDIDATE_XXXX"
-            emails = ["hidden@example.com"] if emails else []
-            phones = ["hidden"] if phones else []
-
-        # Summary + Skills
-        summary = extractive_summary(sent_model, text)
-        skills_ml, skill_details = extract_skills_embedding(sent_model, text, top_k=25, sim_thresh=0.45)
-        skills_all = sorted(set(skills_ml["all"]))
-
-        # Resume score (simple heuristic)
-        resume_score = min(100, 35 + len(skills_all)*2 + (10 if emails else 0) + (10 if phones else 0))
-
-        # Timeline
-        timeline = detect_timeline(text)
-
-        # JD fit + hire probability
-        jd_text_clean = (jd_text or "").strip()
-        jd_skills = []
-        if jd_text_clean:
-            jd_skills = extract_skills_embedding(sent_model, jd_text_clean, top_k=20, sim_thresh=0.45)["all"]
-        missing_skills = [s for s in jd_skills if s not in skills_all]
-        sim = 0.0
-        if jd_text_clean:
-            cand_profile = " ".join([" ".join(skills_all), summary, text[:1200]])
-            emb_cand = sent_model.encode(cand_profile, convert_to_tensor=True, normalize_embeddings=True)
-            emb_jd   = sent_model.encode(jd_text_clean, convert_to_tensor=True, normalize_embeddings=True)
-            sim = float(util.cos_sim(emb_cand, emb_jd).item())
-        skill_overlap = 1.0 - (len(missing_skills)/len(jd_skills)) if jd_skills else 0.0
-        fit_score = (jd_weight_skills * skill_overlap + jd_weight_text * sim)
-        fit_score_pct = int(round(100 * fit_score))
-        hire_prob = 1.0 / (1.0 + math.exp(-6*(fit_score - 0.55)))
-        hire_prob_pct = int(round(100 * hire_prob))
-        if not jd_text_clean:
-            suggestion = "ℹ️ Add a JD to get a fit suggestion."
-        elif hire_prob >= 0.75 and len(missing_skills) <= 2:
-            suggestion = "✅ Strong fit — proceed to interview."
-        elif hire_prob >= 0.55:
-            suggestion = "🟡 Borderline — consider technical screen."
-        else:
-            suggestion = "❌ Low fit — keep in pipeline."
-
-        # ---- Hero Card ----
-        st.markdown(f"""
-<div class="hero">
-  <div style="display:flex; align-items:center; gap:12px;">
-    <div style="font-size:28px;">🗂️</div>
-    <div>
-      <h2 style="margin:0; line-height:1.15; color:var(--ink) !important;">{name_guess or "Candidate"}</h2>
-      <div class="small">📊 Resume Score: <b style="color:var(--ink) !important;">{resume_score}/100</b></div>
-    </div>
-  </div>
-  <div style="margin-top:10px; color:var(--ink) !important;">💡 {("Skilled in " + ", ".join(skills_all[:6])) if skills_all else "—"}</div>
-</div>
-""", unsafe_allow_html=True)
-
-        # JD fit box + progress
-        st.markdown(f"""
-<div style="margin-top:0.5rem; padding:1rem; background:#f6faff; border:1px solid #e6f0ff; border-radius:12px; color:var(--ink) !important;">
-  <b>JD Fit:</b> {fit_score_pct}/100 &nbsp;•&nbsp; <b>Hire probability:</b> {hire_prob_pct}%<br/>
-  {suggestion}<br/>
-  <span class="small">Missing skills: {', '.join(missing_skills) if missing_skills else 'None'}</span>
-</div>
-""", unsafe_allow_html=True)
-        st.progress(fit_score_pct)
-
-        # Metric pills
-        st.markdown(f"""
-<div class="metric-grid">
-  <div class="metric"><div class="k">Skills (ML)</div><div class="v">{len(skills_all)}</div></div>
-  <div class="metric"><div class="k">Emails</div><div class="v">{len(emails) if emails else 0}</div></div>
-  <div class="metric"><div class="k">Links</div><div class="v">{len(links) if links else 0}</div></div>
-</div>
-""", unsafe_allow_html=True)
-
-        # ---- Tabs ----
-        tabs = st.tabs(["🏠 Overview","🧩 Skills","🔎 Entities","📈 Timeline","🧾 JSON"])
-
-        with tabs[0]:
-            st.subheader("Overview")
-            render_list("Emails", emails)
-            render_list("Phones", phones)
-            render_list("Links", links)
-
-            st.markdown("### 🔎 Structured Snapshot")
-            snap = structured_snapshot(sent_model, text, top_k=3)
-            if snap:
-                cols = st.columns(2)
-                left = ["Achievements","Responsibilities","Tech & Tools"]
-                right = ["Leadership","Education & Certs"]
-                with cols[0]:
-                    for k in left:
-                        bullets = snap.get(k, [])
-                        if bullets:
-                            st.markdown(f"**{k}**")
-                            for b in bullets:
-                                st.markdown(f"- {b}")
-                with cols[1]:
-                    for k in right:
-                        bullets = snap.get(k, [])
-                        if bullets:
-                            st.markdown(f"**{k}**")
-                            for b in bullets:
-                                st.markdown(f"- {b}")
-            else:
-                st.success("**Summary:** " + (summary or "—"))
-
-            st.markdown("### ✨ Resume Improvement Suggestions")
-            st.markdown("<div class='small'>Tailored to this resume and JD</div>", unsafe_allow_html=True)
-            specific = make_specific_suggestions(text, skills_all, jd_text_clean, jd_skills, missing_skills, timeline)
-            for s in specific:
-                st.markdown(f"- {s}")
-
-        with tabs[1]:
-            st.subheader("Skills")
-            st.markdown("**Hard skills**")
-            render_list("", skills_ml["hard"])
-            st.markdown("**Soft skills**")
-            render_list("", skills_ml["soft"])
-
-            if jd_text_clean and jd_skills:
-                st.markdown("**JD vs Resume — skill diff**")
-                diff_df = pd.DataFrame({
-                    "JD Skill": jd_skills,
-                    "Covered in Resume": [s in skills_all for s in jd_skills]
-                })
-                st.dataframe(diff_df)
-
-        with tabs[2]:
-            st.subheader("Entities (BERT NER)")
-            if ner_results:
-                df_ents = pd.DataFrame(ner_results)
-                df_ents = df_ents.rename(columns={"word":"Text","label":"Entity","score":"Confidence"})
-                df_ents["Confidence"] = df_ents["Confidence"].map(lambda x: round(float(x), 2))
-                st.dataframe(df_ents)
-            else:
-                st.write("No entities detected.")
-
-        with tabs[3]:
-            st.subheader("Career Timeline")
-            if timeline:
-                df_t = pd.DataFrame(timeline)
-                try:
-                    df_t["start_dt"] = pd.to_datetime(df_t["start"])
-                    df_t["end_dt"]   = pd.to_datetime(df_t["end"])
-                    df_t["label"] = df_t.apply(
-                        lambda r: (r["role"] or r["company"] or r["start_raw"])[:40], axis=1
-                    )
-                    chart = alt.Chart(df_t).mark_bar(size=18, cornerRadius=6).encode(
-                        x=alt.X('start_dt:T', title='Start'),
-                        x2=alt.X2('end_dt:T', title='End'),
-                        y=alt.Y('label:N', sort=None, title='Role / Company'),
-                        tooltip=['role','company','start_raw','end_raw']
-                    ).properties(
-                        height=max(220, 42 * len(df_t)),
-                        background='#ffffff'
-                    ).configure_axis(
-                        labelColor='#334155',
-                        titleColor='#334155',
-                        gridColor='#e5e7eb'
-                    )
-                    st.altair_chart(chart, use_container_width=True)
-                except Exception:
-                    st.write("Timeline table:", df_t)
-            else:
-                st.info("No timeline detected (need ranges like 'Jun 2022 - Dec 2022').")
-
-        with tabs[4]:
-            st.subheader("JSON Export")
-            parsed = {
-                "filename": filename,
-                "name_guess": name_guess,
-                "emails": emails,
-                "phones": phones,
-                "links": links,
-                "skills_ml": skills_ml,
-                "skills_all": skills_all,
-                "summary": summary,
-                "resume_score": resume_score,
-                "ner_entities": ner_results,
-                "timeline": timeline,
-                "jd": {
-                    "text_present": bool(jd_text_clean),
-                    "jd_skills": jd_skills,
-                    "missing_skills": missing_skills,
-                    "semantic_similarity": round(sim, 3),
-                    "fit_score_pct": fit_score_pct,
-                    "hire_probability_pct": hire_prob_pct,
-                    "suggestion": suggestion
-                }
-            }
-            pretty_json = json.dumps(parsed, indent=2, ensure_ascii=False)
-            st.code(pretty_json, language="json")
-            st.download_button(
-                "Download JSON",
-                data=pretty_json.encode("utf-8"),
-                file_name="parsed_resume.json",
-                mime="application/json"
-            )
