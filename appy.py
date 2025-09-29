@@ -1,4 +1,4 @@
-# ✨ AI Resume Parser — Light Theme + Embedding Skills + JD Fit + Hire Probability + Timeline + Suggestions
+# ✨ AI Resume Parser — Pastel Light + EasyOCR + Embedding Skills + JD Fit + Hire Probability + Timeline + Suggestions
 import streamlit as st
 from io import BytesIO
 from pdfminer.high_level import extract_text as pdf_extract_text
@@ -17,15 +17,18 @@ import altair as alt
 import json
 from datetime import datetime
 import math
+import numpy as np
+import fitz  # PyMuPDF
+import easyocr
 
-# ---- NLTK resources (needed on Streamlit Cloud) ----
+# ---------------- NLTK ----------------
 nltk.download('punkt', quiet=True)
 try:
     nltk.download('punkt_tab', quiet=True)
 except Exception:
     pass
 
-# ---- Page + Light Theme CSS ----
+# ---------------- Page + Theme ----------------
 st.set_page_config(layout="wide", page_title="AI Resume Parser", page_icon="📑")
 st.markdown("""
 <style>
@@ -52,10 +55,8 @@ html, body, [data-testid="stAppViewContainer"]{
   color: var(--ink) !important;
 }
 
-/* Force headings to dark ink (some themes make them white) */
-h1, h2, h3, h4, h5, h6, label, p, span, div, small {
-  color: inherit !important;
-}
+/* Force headings and labels to dark ink */
+h1, h2, h3, h4, h5, h6, label, p, span, div, small { color: inherit !important; }
 
 /* Sidebar – soft gradient + dark text */
 section[data-testid="stSidebar"]{
@@ -63,20 +64,16 @@ section[data-testid="stSidebar"]{
   border-right: 1px solid #e5e7eb;
   color: var(--ink) !important;
 }
-section[data-testid="stSidebar"] *{
-  color: var(--ink) !important;
-}
+section[data-testid="stSidebar"] *{ color: var(--ink) !important; }
 
-/* Inputs: textareas / text inputs white, not black */
+/* Inputs white, not black */
 textarea, input[type="text"], input[type="search"], input[type="email"], input[type="url"]{
-  background:#ffffff !important;
-  color: var(--ink) !important;
-  border:1px solid #dbe4ff !important;
-  border-radius:10px !important;
+  background:#ffffff !important; color: var(--ink) !important;
+  border:1px solid #dbe4ff !important; border-radius:10px !important;
 }
 [data-baseweb="textarea"] textarea{ background:#ffffff !important; color:var(--ink) !important; }
 
-/* Slider label + ticks */
+/* Slider labels */
 [data-testid="stSlider"] *{ color: var(--ink) !important; }
 
 /* container spacing */
@@ -118,7 +115,7 @@ textarea, input[type="text"], input[type="search"], input[type="email"], input[t
 }
 [data-testid="stFileUploaderDropzone"] *{ color: var(--ink) !important; }
 [data-testid="stFileUploader"] button{
-  background:#1e293b !important; color:#fff !important; /* keep button readable */
+  background:#1e293b !important; color:#fff !important;
   border-radius:8px !important; border:none !important;
 }
 
@@ -152,8 +149,7 @@ tr:nth-child(even) td{ background:#fafcff; }
 </style>
 """, unsafe_allow_html=True)
 
-
-# ---- Sidebar: JD input ----
+# ---------------- Sidebar: JD ----------------
 with st.sidebar:
     st.header("🔎 Job Description")
     jd_text = st.text_area(
@@ -167,53 +163,90 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Tip: paste a short JD for faster, crisper results.")
 
-# ---- Extractors ----
-def extract_text_from_pdf_bytes(file_bytes):
-    with BytesIO(file_bytes) as f:
-        try:
-            return pdf_extract_text(f)
-        except Exception:
-            return ""
-
-def extract_text_from_docx_bytes(file_bytes):
-    doc = docx.Document(BytesIO(file_bytes))
-    return "\n".join(p.text for p in doc.paragraphs)
+# ---------------- OCR helpers ----------------
+@st.cache_resource
+def get_easyocr_reader():
+    # English only, CPU mode for Streamlit Cloud
+    return easyocr.Reader(['en'], gpu=False)
 
 def has_tesseract():
     return shutil.which("tesseract") is not None
 
 def extract_text_from_image_bytes(file_bytes):
-    if not has_tesseract():
-        return "", "OCR unavailable (Tesseract not installed on this host)"
+    """Try Tesseract; fallback to EasyOCR. Returns (text, notice)."""
+    # Tesseract path present?
+    if has_tesseract():
+        try:
+            img = Image.open(BytesIO(file_bytes)).convert("RGB")
+            txt = pytesseract.image_to_string(img)
+            if txt and txt.strip():
+                return txt, None
+        except Exception:
+            pass  # fallback to EasyOCR
+
+    # EasyOCR
     try:
         img = Image.open(BytesIO(file_bytes)).convert("RGB")
-        txt = pytesseract.image_to_string(img)
-        return txt, None
-    except TesseractNotFoundError:
-        return "", "OCR unavailable (Tesseract not installed on this host)"
+        reader = get_easyocr_reader()
+        result = reader.readtext(np.array(img), detail=0, paragraph=True)
+        return "\n".join(result), "Used EasyOCR fallback"
     except Exception as e:
         return "", f"OCR error: {e}"
+
+def extract_text_from_pdf_bytes(file_bytes):
+    """Try pdfminer text layer; if empty, OCR pages with EasyOCR via PyMuPDF. Returns (text, notice)."""
+    # 1) text layer
+    with BytesIO(file_bytes) as f:
+        try:
+            txt_layer = pdf_extract_text(f) or ""
+        except Exception:
+            txt_layer = ""
+    if txt_layer and len(txt_layer.strip()) > 20:
+        return txt_layer, None
+
+    # 2) scanned → OCR
+    try:
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        reader = get_easyocr_reader()
+        ocr_chunks = []
+        for page in doc:
+            pix = page.get_pixmap(dpi=200)
+            img_bytes = pix.tobytes("png")
+            img = Image.open(BytesIO(img_bytes)).convert("RGB")
+            ocr_text = reader.readtext(np.array(img), detail=0, paragraph=True)
+            if ocr_text:
+                ocr_chunks.append("\n".join(ocr_text))
+        doc.close()
+        joined = "\n\n".join(ocr_chunks)
+        if joined.strip():
+            return joined, "Used EasyOCR (scanned PDF)"
+        return "", "No text found (scan quality too low)"
+    except Exception as e:
+        return "", f"OCR error: {e}"
+
+def extract_text_from_docx_bytes(file_bytes):
+    doc = docx.Document(BytesIO(file_bytes))
+    return "\n".join(p.text for p in doc.paragraphs)
 
 def extract_text_smart_bytes(file_bytes, filename):
     fname = filename.lower()
     if fname.endswith(".pdf"):
-        txt = extract_text_from_pdf_bytes(file_bytes)
-        return txt, None
+        return extract_text_from_pdf_bytes(file_bytes)      # (text, notice)
     if fname.endswith((".docx",".doc")):
         return extract_text_from_docx_bytes(file_bytes), None
     if fname.endswith((".png",".jpg",".jpeg",".bmp",".tiff")):
-        return extract_text_from_image_bytes(file_bytes)  # (text, notice)
+        return extract_text_from_image_bytes(file_bytes)    # (text, notice)
     try:
         return file_bytes.decode("utf-8"), None
     except:
         return file_bytes.decode("latin-1", errors="ignore"), None
 
-# ---- Regex & helpers ----
+# ---------------- Regex & helpers ----------------
 EMAIL_RE = re.compile(r'[\w\.-]+@[\w\.-]+\.\w+')
-PHONE_RE = re.compile(r'(\+?\d{1,3}[\s-]?)?\d{10}')
+PHONE_RE = re.compile(r'(?:\+?\d{1,3}[\s-]?)?\d{10}')  # non-capturing so we get full match
 LINK_RE  = re.compile(r'(https?://\S+|linkedin\.com/\S+|github\.com/\S+)')
 
-# (compact skills ontology with synonyms)
+# skills ontology (canonical → synonyms)
 SKILL_ONTOLOGY = {
     "python": ["python", "py", "numpy", "pandas", "scikit-learn"],
     "java": ["java"],
@@ -239,13 +272,11 @@ SKILL_ONTOLOGY = {
     "tensorflow": ["tensorflow", "tf", "keras"],
     "git": ["git", "version control"],
     "excel": ["excel", "spreadsheets"],
-    # soft
     "communication": ["communication", "stakeholder management", "presentation"],
     "leadership": ["leadership", "mentoring", "team lead"],
     "problem-solving": ["problem solving", "critical thinking", "analytical"],
 }
 
-# Date ranges like "Jun 2022 - Dec 2023" or "2019 - 2021"
 DATE_RANGE_RE = re.compile(
     r'((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s?\d{4}|\d{4})\s*(?:to|-|–|—)\s*(Present|present|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?\s?\d{4}|\d{4})',
     re.IGNORECASE
@@ -260,8 +291,8 @@ def detect_timeline(text):
         s_raw, e_raw = m.group(1), m.group(2)
         s = dateparser.parse(s_raw)
         e = datetime.now() if (e_raw and e_raw.lower() == "present") else dateparser.parse(e_raw)
-        context = " ".join(lines[max(0, i-1): min(len(lines), i+2)])
-        parts = re.split(r'[,|–—-]+', context)
+        ctx = " ".join(lines[max(0, i-1): min(len(lines), i+2)])
+        parts = re.split(r'[,|–—-]+', ctx)
         role = parts[0].strip()[:60] if parts else ""
         company = parts[1].strip()[:60] if len(parts) > 1 else ""
         if s and e:
@@ -272,9 +303,9 @@ def detect_timeline(text):
             })
     return events
 
+# ---------------- ML Models ----------------
 @st.cache_resource
 def load_models():
-    # For a resume-specific NER later, swap the model id here.
     ner = pipeline("ner", model="dslim/bert-base-NER", grouped_entities=True)
     sent_model = SentenceTransformer("all-MiniLM-L6-v2")
     return ner, sent_model
@@ -293,8 +324,8 @@ def extractive_summary(sent_model, text, top_k=3):
     idxs = cos.argsort(descending=True)[:top_k].tolist()
     return " ".join(sents[i] for i in sorted(idxs))
 
-# ---- ML Skill Extraction (embedding-based) ----
-def candidate_phrases(text, max_len=6):
+# ---------------- Embedding-based Skills ----------------
+def candidate_phrases(text):
     tokens = re.findall(r"[A-Za-z][A-Za-z0-9\+\.#-]+", text)
     phrases = set()
     for i in range(len(tokens)):
@@ -309,7 +340,6 @@ def candidate_phrases(text, max_len=6):
     return list(phrases)[:2000]
 
 def embed_skills(sent_model):
-    canon = list(SKILL_ONTOLOGY.keys())
     all_terms, id_map = [], []
     for c, syns in SKILL_ONTOLOGY.items():
         for s in [c] + syns:
@@ -358,7 +388,7 @@ def improvement_suggestions(emails, phones, links, skills_all, summary, jd_text_
         if t not in seen: out.append(t); seen.add(t)
     return out[:8]
 
-# ---- UI ----
+# ---------------- UI ----------------
 st.title("📑 AI Resume Parser")
 st.markdown('<span class="header-badge">AI-powered • BERT NER • Semantic Matching</span>', unsafe_allow_html=True)
 st.caption("Transformer-powered parsing: embedding-based skills, JD fit with hire probability, and a visual timeline.")
@@ -372,10 +402,10 @@ if uploaded and st.button("🚀 Parse Resume"):
     text, ocr_notice = extract_text_smart_bytes(raw, filename)
 
     if ocr_notice:
-        st.warning(ocr_notice + " — upload a text-based PDF/DOCX, or ask to enable EasyOCR.")
+        st.warning(ocr_notice)
 
     if not text or len(text.strip()) < 10:
-        st.error("Could not extract text. If scanned PDF, try uploading as image (PNG/JPG) or enable OCR later.")
+        st.error("Could not extract text. If scanned PDF, try a clearer image/PDF.")
     else:
         # models
         ner_model, sent_model = load_models()
@@ -403,17 +433,17 @@ if uploaded and st.button("🚀 Parse Resume"):
             emails = ["hidden@example.com"] if emails else []
             phones = ["hidden"] if phones else []
 
-        # ML skill extraction
+        # skills (ML)
         skills_ml, skill_details = extract_skills_embedding(sent_model, text, top_k=25, sim_thresh=0.45)
         skills_all = sorted(set(skills_ml["all"]))
 
-        # resume score (simple but data-driven)
+        # resume score
         resume_score = min(100, 35 + len(skills_all)*2 + (10 if emails else 0) + (10 if phones else 0))
 
         # timeline
         timeline = detect_timeline(text)
 
-        # JD fit (skill overlap + semantic similarity)
+        # JD fit
         jd_text_clean = (jd_text or "").strip()
         jd_skills = []
         if jd_text_clean:
@@ -431,8 +461,8 @@ if uploaded and st.button("🚀 Parse Resume"):
         fit_score = (jd_weight_skills * skill_overlap + jd_weight_text * sim)
         fit_score_pct = int(round(100 * fit_score))
 
-        # Smooth "hire probability" (logistic on blended score scaled)
-        hire_prob = 1.0 / (1.0 + math.exp(-6*(fit_score - 0.55)))  # center ~0.55
+        # hire probability (smooth logistic)
+        hire_prob = 1.0 / (1.0 + math.exp(-6*(fit_score - 0.55)))
         hire_prob_pct = int(round(100*hire_prob))
 
         if not jd_text_clean:
@@ -471,18 +501,9 @@ if uploaded and st.button("🚀 Parse Resume"):
         # Metric pills
         st.markdown(f"""
 <div class="metric-grid">
-  <div class="metric">
-    <div class="k">Skills (ML)</div>
-    <div class="v">{len(skills_all)}</div>
-  </div>
-  <div class="metric">
-    <div class="k">Emails</div>
-    <div class="v">{len(emails) if emails else 0}</div>
-  </div>
-  <div class="metric">
-    <div class="k">Links</div>
-    <div class="v">{len(links) if links else 0}</div>
-  </div>
+  <div class="metric"><div class="k">Skills (ML)</div><div class="v">{len(skills_all)}</div></div>
+  <div class="metric"><div class="k">Emails</div><div class="v">{len(emails) if emails else 0}</div></div>
+  <div class="metric"><div class="k">Links</div><div class="v">{len(links) if links else 0}</div></div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -510,9 +531,8 @@ if uploaded and st.button("🚀 Parse Resume"):
 
             st.markdown("**Top matched phrases → canonical skill (confidence)**")
             if skill_details:
-                rows = []
-                for canon, info in skill_details.items():
-                    rows.append({"Canonical": canon, "Phrase": info["phr"], "Confidence": round(info["score"], 3)})
+                rows = [{"Canonical": k, "Phrase": v["phr"], "Confidence": round(v["score"], 3)}
+                        for k, v in skill_details.items()]
                 st.dataframe(pd.DataFrame(rows).sort_values("Confidence", ascending=False))
             else:
                 st.write("—")
@@ -587,4 +607,4 @@ if uploaded and st.button("🚀 Parse Resume"):
             )
 
 # cute footer
-st.markdown("<div class='footer'>Built with ❤️ using Streamlit, BERT, and Sentence-BERT.</div>", unsafe_allow_html=True)
+st.markdown("<div class='footer'>Built with ❤️ using Streamlit, BERT, Sentence-BERT, and EasyOCR.</div>", unsafe_allow_html=True)
