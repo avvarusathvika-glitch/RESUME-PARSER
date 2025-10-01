@@ -133,8 +133,9 @@ div.stCode code,
 
 /* small text */
 .small{ color:#64748b !important; font-size:.92rem; }
-</style>
-""", unsafe_allow_html=True)
+/* small text */
+.small{ color:#64748b !important; font-size:.92rem; }
+
 /* ===== FINAL PATCH: kill the last dark blocks ===== */
 
 /* Uploader: icons, chips, and the "Browse files" control */
@@ -194,6 +195,10 @@ button[kind="secondary"] {
   color: var(--ink) !important;
   border: 1px solid #dbe4ff !important;
 }
+</style>
+
+</style>
+""", unsafe_allow_html=True)
 
 
 # ---------------- Sidebar: JD ----------------
