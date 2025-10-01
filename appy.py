@@ -1,3 +1,5 @@
+# 📑 AI Resume Parser — Pastel Light + EasyOCR + BERT NER + SBERT Skills + JD Fit + Timeline + Suggestions
+# Full Streamlit app (single file)
 
 import streamlit as st
 from io import BytesIO
@@ -45,12 +47,13 @@ st.markdown("""
   --shadow:0 10px 30px rgba(30,64,175,.06);
 }
 html, body, [data-testid="stAppViewContainer"]{
-  background: radial-gradient(1200px 600px at 10% -10%, var(--brand-3) 0%, transparent 40%),
-              radial-gradient(900px 500px at 110% 10%, #e0f2fe 0%, transparent 35%),
-              var(--bg) !important;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, var(--brand-3) 0%, transparent 40%),
+    radial-gradient(900px 500px at 110% 10%, #e0f2fe 0%, transparent 35%),
+    var(--bg) !important;
   color: var(--ink) !important;
 }
-h1,h2,h3,h4,h5,h6,label,p,span,div,small,strong,em,b,i { color: var(--ink) !important; }
+h1,h2,h3,h4,h5,h6,label,p,span,div,small,strong,em,b,i{ color: var(--ink) !important; }
 
 /* bigger app title */
 .app-title{ font-size:2.6rem; line-height:1.1; margin:0 0 .35rem 0; letter-spacing:.2px; color:var(--ink) !important; }
@@ -71,9 +74,9 @@ textarea, input[type="text"], input[type="search"], input[type="email"], input[t
 [data-baseweb="textarea"] textarea{ background:#ffffff !important; color:var(--ink) !important; }
 
 /* uploader */
-[data-testid="stFileUploader"] *{ color: var(--ink) !important; }
+[data-testid="stFileUploader"] *{ color: var(--ink) !important; fill: var(--ink) !important; }
 [data-testid="stFileUploaderDropzone"]{ background: var(--muted) !important; border:2px dashed var(--brand-2) !important; }
-[data-testid="stFileUploader"] label, [data-testid="stFileUploader"] svg { color: var(--ink) !important; fill: var(--ink) !important; }
+[data-testid="stFileUploader"] div[role="button"]{ color: var(--ink) !important; }
 
 /* buttons */
 .stButton > button{
@@ -89,32 +92,35 @@ textarea, input[type="text"], input[type="search"], input[type="email"], input[t
 /* table/dataframe */
 table{ border-collapse:collapse; width:100%; border-radius:12px; overflow:hidden; }
 th{ background:#f3f6ff; font-weight:700; padding:10px; color:#1e3a8a !important; }
-td{ padding:10px; border-top:1px solid #e5e7eb; color:var(--ink) !important; }
+td{ padding:10px; border-top:1px solid #e5e7eb; color: var(--ink) !important; }
 tr:nth-child(even) td{ background:#fafcff; }
 .stDataFrame, .stTable, .stDataFrame div, .stTable div { color: var(--ink) !important; }
 
 /* tabs */
 [data-testid="stTabs"] button, [data-testid="stTabs"] button p, [data-testid="stTabs"] button span { color: var(--ink) !important; }
 
-/* code/pre */
-[data-testid="stMarkdownContainer"] pre, [data-testid="stMarkdownContainer"] code{
+/* code/pre (includes st.code output) */
+[data-testid="stCodeBlock"] pre,
+[data-testid="stCodeBlock"] code,
+div.stCode pre,
+div.stCode code,
+[data-testid="stMarkdownContainer"] pre,
+[data-testid="stMarkdownContainer"] code{
   background:#f8fbff !important; color:var(--ink) !important;
-  border:1px solid #e6eefc !important; border-radius:8px !important;
+  border:1px solid #e6eefc !important; border-radius:8px !important; box-shadow:none !important;
 }
 
-/* JSON */
+/* st.json (if ever used) */
 [data-testid="stJson"], [data-testid="stJson"] *{ color: var(--ink) !important; }
 [data-testid="stJson"] pre, [data-testid="stJson"] code{
   background:#f8fbff !important; color:var(--ink) !important;
   border:1px solid #e6eefc !important; border-radius:8px !important;
 }
 
-/* hero card */
+/* hero + metrics */
 .hero{ background:#ffffffcc; backdrop-filter: blur(4px);
   border:1px solid #e6eefc; border-radius:16px; padding:18px 20px; box-shadow:var(--shadow); }
 .hero *{ color: var(--ink) !important; }
-
-/* metric pills */
 .metric-grid{ display:grid; gap:14px; grid-template-columns: repeat(3,1fr); margin:14px 0 2px; }
 .metric{ background:var(--bg); border:1px solid #e6eefc; border-radius:14px; padding:14px; box-shadow:var(--shadow); }
 .metric .k{ font-size:.82rem; color:var(--ink-2) !important; }
@@ -125,7 +131,7 @@ tr:nth-child(even) td{ background:#fafcff; }
 .chip{ background:#e8f0ff; border:1px solid #cfe0ff; color:#1e3a8a !important;
   border-radius:999px; padding:.28rem .6rem; font-weight:600; font-size:.85rem; }
 
-/* small */
+/* small text */
 .small{ color:#64748b !important; font-size:.92rem; }
 </style>
 """, unsafe_allow_html=True)
@@ -279,7 +285,6 @@ def detect_timeline(text: str):
 # ---------------- Models ----------------
 @st.cache_resource
 def load_models():
-    # grouped_entities=True for cleaner labels; also normalize later
     ner = pipeline("ner", model="dslim/bert-base-NER", grouped_entities=True)
     sent_model = SentenceTransformer("all-MiniLM-L6-v2")
     return ner, sent_model
@@ -395,7 +400,7 @@ def structured_snapshot(sent_model, raw_text: str, top_k=3):
     return snapshot
 
 def render_list(label, items):
-    st.markdown(f"*{label}:*")
+    st.markdown(f"**{label}:**")
     if not items:
         st.markdown("—")
         return
@@ -451,7 +456,7 @@ def make_specific_suggestions(text, skills_all, jd_text_clean, jd_skills, missin
     if not any(s in skills_all for s in ["communication", "leadership", "problem-solving"]):
         tips.append("Add one soft-skill bullet tied to outcome (e.g., led 3 interns to deliver X).")
     # Length
-    word_count = len(re.findall(r"\w+", text))
+    word_count = len(re.findall(r"\\w+", text))
     if word_count > 1200:
         tips.append("Condense to 1–2 pages; prioritize last 3–4 years.")
     # dedupe
@@ -594,18 +599,18 @@ if uploaded and st.button("🚀 Parse Resume"):
                     for k in left:
                         bullets = snap.get(k, [])
                         if bullets:
-                            st.markdown(f"*{k}*")
+                            st.markdown(f"**{k}**")
                             for b in bullets:
                                 st.markdown(f"- {b}")
                 with cols[1]:
                     for k in right:
                         bullets = snap.get(k, [])
                         if bullets:
-                            st.markdown(f"*{k}*")
+                            st.markdown(f"**{k}**")
                             for b in bullets:
                                 st.markdown(f"- {b}")
             else:
-                st.success("*Summary:* " + (summary or "—"))
+                st.success("**Summary:** " + (summary or "—"))
 
             st.markdown("### ✨ Resume Improvement Suggestions")
             st.markdown("<div class='small'>Tailored to this resume and JD</div>", unsafe_allow_html=True)
@@ -615,13 +620,13 @@ if uploaded and st.button("🚀 Parse Resume"):
 
         with tabs[1]:
             st.subheader("Skills")
-            st.markdown("*Hard skills*")
+            st.markdown("**Hard skills**")
             render_list("", skills_ml["hard"])
-            st.markdown("*Soft skills*")
+            st.markdown("**Soft skills**")
             render_list("", skills_ml["soft"])
 
             if jd_text_clean and jd_skills:
-                st.markdown("*JD vs Resume — skill diff*")
+                st.markdown("**JD vs Resume — skill diff**")
                 diff_df = pd.DataFrame({
                     "JD Skill": jd_skills,
                     "Covered in Resume": [s in skills_all for s in jd_skills]
