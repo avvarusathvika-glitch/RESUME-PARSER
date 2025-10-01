@@ -135,6 +135,66 @@ div.stCode code,
 .small{ color:#64748b !important; font-size:.92rem; }
 </style>
 """, unsafe_allow_html=True)
+/* ===== FINAL PATCH: kill the last dark blocks ===== */
+
+/* Uploader: icons, chips, and the "Browse files" control */
+[data-testid="stFileUploader"] svg,
+[data-testid="stFileUploader"] svg *,
+[data-testid="stFileUploaderFile"] svg,
+[data-testid="stFileUploaderFile"] svg * {
+  fill: var(--ink) !important;
+  stroke: var(--ink) !important;
+  color: var(--ink) !important;
+}
+
+/* Remove any dark squares behind the icons */
+[data-testid="stFileUploader"] [data-baseweb="tag"] {
+  background: #eef4ff !important;
+  border: 1px solid #dbe4ff !important;
+  color: var(--ink) !important;
+}
+
+/* Make the 'Browse files' control light */
+[data-testid="stFileUploader"] button,
+[data-testid="stFileUploader"] div[role="button"] {
+  background: #ffffff !important;
+  color: var(--ink) !important;
+  border: 1px solid #dbe4ff !important;
+  box-shadow: none !important;
+}
+
+/* Keep the dropzone light */
+[data-testid="stFileUploaderDropzone"]{
+  background: var(--muted) !important;
+  border: 2px dashed var(--brand-2) !important;
+}
+[data-testid="stFileUploaderDropzone"] *{
+  background: transparent !important;
+  color: var(--ink) !important;
+  fill: var(--ink) !important;
+}
+
+/* Download JSON button (and any download buttons) */
+.stDownloadButton > button,
+[data-testid="stDownloadButton"] button {
+  background: #ffffff !important;
+  color: var(--ink) !important;
+  border: 1px solid #dbe4ff !important;
+  border-radius: 10px !important;
+  box-shadow: 0 2px 10px rgba(59,130,246,.08) !important;
+}
+.stDownloadButton > button:hover,
+[data-testid="stDownloadButton"] button:hover {
+  filter: brightness(1.03);
+}
+
+/* Also normalize any leftover generic buttons that aren’t stButton */
+button[kind="secondary"] {
+  background: #ffffff !important;
+  color: var(--ink) !important;
+  border: 1px solid #dbe4ff !important;
+}
+
 
 # ---------------- Sidebar: JD ----------------
 with st.sidebar:
